@@ -39,3 +39,8 @@ git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057
 
 # Diffusers from GitHub
 git+https://github.com/huggingface/diffusers
+
+plyfile==0.9
+open3d
+onnxruntime
+matplotlib

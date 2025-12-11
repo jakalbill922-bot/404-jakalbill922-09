@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torchvision import transforms
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from .base import Pipeline
 from . import samplers
@@ -91,6 +91,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         size = max(bbox[2] - bbox[0], bbox[3] - bbox[1])
         size = int(size * 1.2)
         bbox = center[0] - size // 2, center[1] - size // 2, center[0] + size // 2, center[1] + size // 2
+        output = output.filter(ImageFilter.GaussianBlur(0.5))
         output = output.crop(bbox)  # type: ignore
         output = output.resize((518, 518), Image.Resampling.LANCZOS)
         output = np.array(output).astype(np.float32) / 255

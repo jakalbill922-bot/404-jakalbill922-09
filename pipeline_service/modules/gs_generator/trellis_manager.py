@@ -14,6 +14,8 @@ from config import Settings
 from logger_config import logger
 from libs.trellis.pipelines import TrellisImageTo3DPipeline
 from schemas import TrellisResult, TrellisRequest, TrellisParams
+import open3d as o3d
+from plyfile import PlyData, PlyElement
 
 class TrellisService:
     def __init__(self, settings: Settings):
@@ -76,6 +78,57 @@ class TrellisService:
 
             generation_time = time.time() - start
             gaussian = outputs["gaussian"][0]
+
+
+            temp_ply = "temp_before_refine.ply"
+            gaussian.save_ply(temp_ply)
+            
+            # Load point cloud with Open3D
+            pcd = o3d.io.read_point_cloud(temp_ply)
+            num_points_before = len(pcd.points)
+            
+            # Apply statistical outlier removal if we have enough points
+            logger.warning(f"Refining PLY file with Open3D: {temp_ply}")
+            
+            # Statistical outlier removal - parameters from config
+            # nb_neighbors: number of neighbors to consider (higher = smoother)
+            # std_ratio: threshold (higher = keeps more points, preserves geometry)
+            pcd_filtered, inlier_indices = pcd.remove_statistical_outlier(
+                nb_neighbors=20,
+                std_ratio=2.0
+            )
+            
+            num_points_after = len(pcd_filtered.points)
+            removed_points = num_points_before - num_points_after
+            
+            logger.warning(f"Outlier removal: {removed_points} points removed ({removed_points/num_points_before*100:.1f}%)")
+            
+            # Convert inlier_indices to numpy array for filtering
+            inlier_mask = np.array(inlier_indices)
+            
+            # Load original PLY with plyfile to preserve all Gaussian Splatting properties
+            plydata = PlyData.read(temp_ply)
+            vertex = plydata['vertex']
+            
+            # Filter vertices using inlier mask
+            filtered_vertex = vertex[inlier_mask]
+            
+            # Create new PLY with filtered data
+            refined_ply = temp_ply.replace('.ply', '_refined.ply')
+            new_vertex = PlyElement.describe(filtered_vertex, 'vertex')
+            PlyData([new_vertex], text=False).write(refined_ply)
+            
+            logger.warning(f"Refined PLY saved with {num_points_after} points (preserved all Gaussian Splatting properties)")
+            
+            # Load the refined PLY back into a Gaussian object
+            gaussian.load_ply(refined_ply)
+            logger.warning(f"Refined PLY loaded back into Gaussian object")
+            
+            # Clean up temporary files
+            if os.path.exists(temp_ply):
+                os.remove(temp_ply)
+            if os.path.exists(refined_ply):
+                os.remove(refined_ply)
 
             # Save ply to buffer
             buffer = io.BytesIO()
