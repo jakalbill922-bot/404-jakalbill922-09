@@ -1,14 +1,3 @@
-#
-# Copyright (C) 2023, Inria
-# GRAPHDECO research group, https://team.inria.fr/graphdeco
-# All rights reserved.
-#
-# This software is free for non-commercial, research and evaluation use 
-# under the terms of the LICENSE.md file.
-#
-# For inquiries contact  george.drettakis@inria.fr
-#
-
 import torch
 import math
 from easydict import EasyDict as edict
@@ -24,16 +13,7 @@ def intrinsics_to_projection(
         near: float,
         far: float,
     ) -> torch.Tensor:
-    """
-    OpenCV intrinsics to OpenGL perspective matrix
 
-    Args:
-        intrinsics (torch.Tensor): [3, 3] OpenCV intrinsics matrix
-        near (float): near plane to clip
-        far (float): far plane to clip
-    Returns:
-        (torch.Tensor): [4, 4] OpenGL perspective matrix
-    """
     fx, fy = intrinsics[0, 0], intrinsics[1, 1]
     cx, cy = intrinsics[0, 2], intrinsics[1, 2]
     ret = torch.zeros((4, 4), dtype=intrinsics.dtype, device=intrinsics.device)
@@ -48,11 +28,7 @@ def intrinsics_to_projection(
 
 
 def render(viewpoint_camera, pc : Gaussian, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None):
-    """
-    Render the scene. 
-    
-    Background tensor (bg_color) must be on GPU!
-    """
+
     # lazy import
     if 'GaussianRasterizer' not in globals():
         from diff_gaussian_rasterization import GaussianRasterizer, GaussianRasterizationSettings
@@ -141,12 +117,6 @@ def render(viewpoint_camera, pc : Gaussian, pipe, bg_color : torch.Tensor, scali
 
 
 class GaussianRenderer:
-    """
-    Renderer for the Voxel representation.
-
-    Args:
-        rendering_options (dict): Rendering options.
-    """
 
     def __init__(self, rendering_options={}) -> None:
         self.pipe = edict({
@@ -173,19 +143,7 @@ class GaussianRenderer:
             intrinsics: torch.Tensor,
             colors_overwrite: torch.Tensor = None
         ) -> edict:
-        """
-        Render the gausssian.
 
-        Args:
-            gaussian : gaussianmodule
-            extrinsics (torch.Tensor): (4, 4) camera extrinsics
-            intrinsics (torch.Tensor): (3, 3) camera intrinsics
-            colors_overwrite (torch.Tensor): (N, 3) override color
-
-        Returns:
-            edict containing:
-                color (torch.Tensor): (3, H, W) rendered color image
-        """
         resolution = self.rendering_options["resolution"]
         near = self.rendering_options["near"]
         far = self.rendering_options["far"]
