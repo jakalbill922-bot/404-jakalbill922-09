@@ -1,0 +1,10 @@
+{
+    "background": {
+        "positive": "Show the main subject on a perfectly flat, solid warm gray background. Maintain strict visual consistency: keep its design, textures, and original lighting identical to the input image.",
+        "negative": "text, watermark, logo, blurry, low resolution, distorted, cropped, out of focus, low quality, artifact"
+    },
+    "views": {
+        "positive": ["Rotate the main subject to a three-quarters view from the left. Maintain strict visual consistency in materials and colors. Keep the original lighting direction on the subject while synthesizing the new perspective.",
+                     "Rotate the main subject to a back view from a slightly elevated angle. Maintain strict visual consistency in materials and colors. Keep the original lighting direction while synthesizing the new perspective."]
+    }
+}

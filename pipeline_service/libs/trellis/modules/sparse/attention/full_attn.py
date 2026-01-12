@@ -1,6 +1,6 @@
 from typing import *
 import torch
-from .. import SparseTensor
+from ..basic import SparseTensor
 from .. import DEBUG, ATTN
 
 if ATTN == 'xformers':

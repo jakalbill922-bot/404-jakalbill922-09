@@ -2,7 +2,7 @@ from typing import *
 from enum import Enum
 import torch
 import math
-from .. import SparseTensor
+from ..basic import SparseTensor
 from .. import DEBUG, ATTN
 
 if ATTN == 'xformers':

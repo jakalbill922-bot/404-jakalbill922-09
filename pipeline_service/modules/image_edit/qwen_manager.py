@@ -13,8 +13,8 @@ from diffusers import (
 from huggingface_hub import login, whoami
 from PIL import Image
 
-from config import Settings
 from logger_config import logger
+from config.settings import QwenConfig
 
 
 @dataclass(slots=True)
@@ -26,12 +26,12 @@ class QwenResult:
 class QwenManager:
     """Handles Qwen pipeline responsible for generating 2D images."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: QwenConfig):
         self.settings = settings
         self.pipe = None
-        self.device = f"cuda:{settings.qwen_gpu}" if torch.cuda.is_available() else "cpu"
+        self.device = f"cuda:{settings.gpu}" if torch.cuda.is_available() else "cpu"
         self.dtype = self._resolve_dtype(settings.dtype)
-        self.gpu_index = settings.qwen_gpu
+        self.gpu_index = settings.gpu
 
     async def startup(self) -> None:
         """Initialize the Qwen pipeline."""
@@ -69,8 +69,8 @@ class QwenManager:
         self.pipe = self._get_model_pipe(transformer, scheduler)
 
         self.pipe.load_lora_weights(
-            self.settings.qwen_edit_lora_repo,
-            weight_name=self.settings.qwen_edit_base_model_path
+            self.settings.lora_path,
+            weight_name=self.settings.base_model_path
         )
         # Move model pipe to device
         self.pipe = self.pipe.to(self.device)

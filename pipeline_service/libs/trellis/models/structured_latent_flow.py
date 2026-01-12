@@ -109,9 +109,8 @@ class SLatFlowModel(nn.Module):
         self.qk_rms_norm_cross = qk_rms_norm_cross
         self.dtype = torch.float16 if use_fp16 else torch.float32
 
-        if self.io_block_channels is not None:
-            assert int(np.log2(patch_size)) == np.log2(patch_size), "Patch size must be a power of 2"
-            assert np.log2(patch_size) == len(io_block_channels), "Number of IO ResBlocks must match the number of stages"
+        assert int(np.log2(patch_size)) == np.log2(patch_size), "Patch size must be a power of 2"
+        assert np.log2(patch_size) == len(io_block_channels), "Number of IO ResBlocks must match the number of stages"
 
         self.t_embedder = TimestepEmbedder(model_channels)
         if share_mod:
@@ -123,27 +122,25 @@ class SLatFlowModel(nn.Module):
         if pe_mode == "ape":
             self.pos_embedder = AbsolutePositionEmbedder(model_channels)
 
-        self.input_layer = sp.SparseLinear(in_channels, model_channels if io_block_channels is None else io_block_channels[0])
-        
+        self.input_layer = sp.SparseLinear(in_channels, io_block_channels[0])
         self.input_blocks = nn.ModuleList([])
-        if io_block_channels is not None:
-            for chs, next_chs in zip(io_block_channels, io_block_channels[1:] + [model_channels]):
-                self.input_blocks.extend([
-                    SparseResBlock3d(
-                        chs,
-                        model_channels,
-                        out_channels=chs,
-                    )
-                    for _ in range(num_io_res_blocks-1)
-                ])
-                self.input_blocks.append(
-                    SparseResBlock3d(
-                        chs,
-                        model_channels,
-                        out_channels=next_chs,
-                        downsample=True,
-                    )
+        for chs, next_chs in zip(io_block_channels, io_block_channels[1:] + [model_channels]):
+            self.input_blocks.extend([
+                SparseResBlock3d(
+                    chs,
+                    model_channels,
+                    out_channels=chs,
                 )
+                for _ in range(num_io_res_blocks-1)
+            ])
+            self.input_blocks.append(
+                SparseResBlock3d(
+                    chs,
+                    model_channels,
+                    out_channels=next_chs,
+                    downsample=True,
+                )
+            )
             
         self.blocks = nn.ModuleList([
             ModulatedSparseTransformerCrossBlock(
@@ -162,26 +159,24 @@ class SLatFlowModel(nn.Module):
         ])
 
         self.out_blocks = nn.ModuleList([])
-        if io_block_channels is not None:
-            for chs, prev_chs in zip(reversed(io_block_channels), [model_channels] + list(reversed(io_block_channels[1:]))):
-                self.out_blocks.append(
-                    SparseResBlock3d(
-                        prev_chs * 2 if self.use_skip_connection else prev_chs,
-                        model_channels,
-                        out_channels=chs,
-                        upsample=True,
-                    )
+        for chs, prev_chs in zip(reversed(io_block_channels), [model_channels] + list(reversed(io_block_channels[1:]))):
+            self.out_blocks.append(
+                SparseResBlock3d(
+                    prev_chs * 2 if self.use_skip_connection else prev_chs,
+                    model_channels,
+                    out_channels=chs,
+                    upsample=True,
                 )
-                self.out_blocks.extend([
-                    SparseResBlock3d(
-                        chs * 2 if self.use_skip_connection else chs,
-                        model_channels,
-                        out_channels=chs,
-                    )
-                    for _ in range(num_io_res_blocks-1)
-                ])
-            
-        self.out_layer = sp.SparseLinear(model_channels if io_block_channels is None else io_block_channels[0], out_channels)
+            )
+            self.out_blocks.extend([
+                SparseResBlock3d(
+                    chs * 2 if self.use_skip_connection else chs,
+                    model_channels,
+                    out_channels=chs,
+                )
+                for _ in range(num_io_res_blocks-1)
+            ])
+        self.out_layer = sp.SparseLinear(io_block_channels[0], out_channels)
 
         self.initialize_weights()
         if use_fp16:

@@ -35,11 +35,6 @@ python-multipart
 loguru==0.7.3
 opencv-python
 
-openai
-imageio==2.35.1
-open3d==0.18.0
-meshio==5.3.5
-plyfile==1.1
 # Utils3d from GitHub
 git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
 

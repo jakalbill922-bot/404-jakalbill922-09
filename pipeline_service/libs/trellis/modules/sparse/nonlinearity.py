@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from . import SparseTensor
+from .basic import SparseTensor
 
 __all__ = [
     'SparseReLU',

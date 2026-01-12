@@ -1,6 +1,6 @@
 from typing import *
 
-BACKEND = 'flash_attn' 
+BACKEND = 'flash_attn'
 DEBUG = False
 
 def __from_env():

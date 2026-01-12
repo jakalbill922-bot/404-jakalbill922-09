@@ -1,0 +1,10 @@
+{
+    "background": {
+        "positive": "Show this object in left three-quarters view and make sure it is fully visible. Turn background black color. Persist near object on background. Delete background details. Keep exactly the same design, pose, proportions, materials, texture, and COLORS as in the original image.\nDo not change lighting direction on the subject.",
+        "negative": ""
+    },
+    "views": {
+        "positive": ["Show this object in right three-quarters view and make sure it is fully visible. Turn background black color. Persist near object on background. Delete background details. Keep exactly the same design, pose, proportions, materials, texture, and COLORS as in the original image.\nDo not change lighting direction on the subject.",
+                     "Show this object in back view and make sure it is fully visible. Turn background black color. Persist near object on background. Delete background details. Keep exactly the same design, pose, proportions, materials, texture, and COLORS as in the original image.\nDo not change lighting direction on the subject."]
+    }
+}

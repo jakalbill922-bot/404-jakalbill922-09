@@ -39,24 +39,19 @@ def from_pretrained(path: str, **kwargs):
     """
     import os
     import json
-    import sys
     from safetensors.torch import load_file
     is_local = os.path.exists(f"{path}.json") and os.path.exists(f"{path}.safetensors")
 
     if is_local:
         config_file = f"{path}.json"
         model_file = f"{path}.safetensors"
-        print(f"[Trellis] Loading model from local path: {path}", file=sys.stderr, flush=True)
     else:
         from huggingface_hub import hf_hub_download
         path_parts = path.split('/')
         repo_id = f'{path_parts[0]}/{path_parts[1]}'
         model_name = '/'.join(path_parts[2:])
-        print(f"[Trellis] Downloading model config: {model_name}.json from {repo_id}...", file=sys.stderr, flush=True)
         config_file = hf_hub_download(repo_id, f"{model_name}.json")
-        print(f"[Trellis] Downloading model weights: {model_name}.safetensors from {repo_id} (this may take several minutes)...", file=sys.stderr, flush=True)
         model_file = hf_hub_download(repo_id, f"{model_name}.safetensors")
-        print(f"[Trellis] Model download complete: {model_name}", file=sys.stderr, flush=True)
 
     with open(config_file, 'r') as f:
         config = json.load(f)

@@ -1,10 +1,6 @@
 import math
-from os import PathLike
-from pathlib import Path
-from typing import Optional, Any, Literal
-from safetensors import safe_open
+from typing import Iterable, Optional
 import torch
-from pydantic import BaseModel, Field
 from diffusers import QwenImageEditPlusPipeline
 import time
 from PIL import Image
@@ -13,7 +9,6 @@ import json
 
 from dotenv import load_dotenv
 
-from schemas.custom_types import BFloatTensor, IntTensor
 load_dotenv()
 
 from logger_config import logger
@@ -21,56 +16,32 @@ import hashlib
 
 from diffusers.models import QwenImageTransformer2DModel
 from modules.image_edit.qwen_manager import QwenManager
-from config import Settings
+from modules.image_edit.prompting import Prompting, TextPrompting, EmbeddedPrompting
+from config.settings import QwenConfig
 
-class EmbeddedPrompting(BaseModel):
-    prompt_embeds: BFloatTensor
-    prompt_embeds_mask: Optional[IntTensor] = None
-
-class TextPrompting(BaseModel):
-    prompt: str = Field(alias="positive")
-    negative_prompt: Optional[str] = Field(default=None, alias="negative")
+CONDITION_IMAGE_SIZE = 384 * 384
+INPUT_IMAGE_SIZE = 1024 * 1024
 
 class QwenEditModule(QwenManager):
     """Qwen module for image editing operations."""
+    CONDITION_IMAGE_SIZE = 384 * 384
+    INPUT_IMAGE_SIZE = 1024 * 1024
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: QwenConfig):
         super().__init__(settings)
-        self._empty_image = Image.new('RGB', (1024, 1024))
+        self._empty_image = self._prepare_input_image(Image.new('RGB', (64, 64)))
 
-        self.base_model_path = settings.qwen_edit_base_model_path
-        self.edit_model_path = settings.qwen_edit_model_path
-        self.prompt_path = settings.qwen_edit_prompt_path
-        self.prompting = self._set_prompting()
+        self.base_model_path = settings.base_model_path
+        self.edit_model_path = settings.model_path
 
         self.pipe_config = {
             "num_inference_steps": settings.num_inference_steps,
             "true_cfg_scale": settings.true_cfg_scale,
-            "height": settings.qwen_edit_height,
-            "width": settings.qwen_edit_width,
+            "height": settings.height,
+            "width": settings.width,
 
         }
 
-    def _set_text_prompting(self, path: Optional[PathLike] = None) -> TextPrompting:
-        path = path or self.prompt_path
-        with open(path, "r") as f:
-            edit_prompt = TextPrompting.model_validate_json(json.dumps(json.load(f)))
-            return edit_prompt
-
-
-    def _set_embedded_prompting(self, path: Optional[PathLike] = None) -> EmbeddedPrompting:
-        path = path or self.prompt_path
-        with safe_open(path,framework="pt", device=self.device)as f:
-            tensors = {key: f.get_tensor(key) for key in f.keys()}
-            embedding = EmbeddedPrompting(**tensors)
-        return embedding
-    
-    def _set_prompting(self, path: Optional[PathLike] = None) -> TextPrompting | EmbeddedPrompting:
-        path = Path(path or self.prompt_path)
-        if path.suffix == ".safetensors":
-            return self._set_embedded_prompting(path)
-        else:
-            return self._set_text_prompting(path)
 
     def _get_model_transformer(self):
         """Load the Nunchaku Qwen transformer for image editing."""
@@ -108,14 +79,55 @@ class QwenEditModule(QwenManager):
                 "use_karras_sigmas": False,
             }
 
-    def _prepare_input_image(self, image: Image, megapixels: float = 1.0):
-        total = int(megapixels * 1024 * 1024)
+    def _prepare_input_image(self, image: Image, pixels: int = INPUT_IMAGE_SIZE):
+        total = int(pixels)
 
         scale_by = math.sqrt(total / (image.width * image.height))
         width = round(image.width * scale_by)
         height = round(image.height * scale_by)
 
         return image.resize((width, height), Image.Resampling.LANCZOS)
+
+    def _text_prompting_to_embedded(self, text_prompting: TextPrompting, images: Iterable[Image.Image]) -> EmbeddedPrompting:
+        # 1. Create a list of prompt_embeds and masks
+        embeds_list = []
+        masks_list = []
+
+        images = list(self._prepare_input_image(img, self.CONDITION_IMAGE_SIZE) for img in images)
+        
+        for p in text_prompting.prompt:
+            # encode_prompt returns tensors of shape [batch_size_per_prompt, seq_len, hidden_dim]
+            e, m = self.pipe.encode_prompt(
+                prompt=p,
+                image=images,
+            )
+            embeds_list.append(e)
+            masks_list.append(m)
+
+        # Total batch = sum of all individual batches
+        total_batch = sum(e.shape[0] for e in embeds_list)
+        # Max sequence length across this specific set of prompts
+        max_seq_len = max(e.shape[1] for e in embeds_list)
+        hidden_dim = embeds_list[0].shape[2]
+
+        # Shape: [total_batch, max_seq_len, hidden_dim]
+        output_embeds = embeds_list[0].new_zeros(total_batch, max_seq_len, hidden_dim)
+        # Shape: [total_batch, max_seq_len]
+        output_masks = masks_list[0].new_zeros(total_batch, max_seq_len) 
+
+        # In for loop copy contents
+        current_idx = 0
+        for e, m in zip(embeds_list, masks_list):
+            b, s, _ = e.shape
+            output_embeds[current_idx : current_idx + b, :s, :] = e
+            output_masks[current_idx : current_idx + b, :s] = m
+            current_idx += b
+
+        # create EmbeddedPrompting
+        embedded_prompting = EmbeddedPrompting(prompt_embeds=output_embeds, prompt_embeds_mask = output_masks)
+        return embedded_prompting
+
+
 
     def _run_model_pipe(self, seed: Optional[int] = None, **kwargs):
         if seed:
@@ -128,16 +140,15 @@ class QwenEditModule(QwenManager):
         return result
     
     def _run_edit_pipe(self,
-                       prompt_image: Image.Image,
+                       prompt_images: Iterable[Image.Image],
                        seed: Optional[int] = None,
                        **kwargs):
-        prompt_image = self._prepare_input_image(prompt_image)
-        logger.info(f"Prompt image size: {prompt_image.size}")
-        logger.info(f"Prompt image: {kwargs}")
-        return self._run_model_pipe(seed=seed, image=prompt_image, **kwargs)
+        prompt_images = list(self._prepare_input_image(prompt_image) for prompt_image in prompt_images)
+
+        return self._run_model_pipe(seed=seed, image=prompt_images, **kwargs)
     
     
-    def edit_image(self, prompt_image: Image.Image, seed: int, prompt: Optional[str] = None):
+    def edit_image(self, prompt_image: Image.Image | Iterable[Image.Image], seed: int, prompting: Prompting, encode_prompt: bool = True):
         """ 
         Edit the image using Qwen Edit.
 
@@ -155,22 +166,24 @@ class QwenEditModule(QwenManager):
         try:
             start_time = time.time()
 
-            prompting = self.prompting.model_dump()
-            if prompt:
-                prompting["prompt"] = prompt
+            prompt_images = list(prompt_image) if isinstance(prompt_image, Iterable) else [prompt_image]
+            if encode_prompt and isinstance(prompting, TextPrompting):
+                prompting = self._text_prompting_to_embedded(prompting, prompt_images)
+
+            prompting_args = prompting.model_dump()
             
             # Run the edit pipe
-            result = self._run_edit_pipe(prompt_image=prompt_image,
-                                         **prompting,
-                                         seed=seed)
+            result = self._run_edit_pipe(prompt_images=prompt_images,
+                                        **prompting_args,
+                                        seed=seed)
             
             generation_time = time.time() - start_time
             
-            image_edited = result.images[0]
+            results = tuple(result.images)
             
-            logger.success(f"Edited image generated in {generation_time:.2f}s, Size: {image_edited.size}, Seed: {seed}")
+            logger.success(f"Edited image generated in {generation_time:.2f}s, Size: {results[0].size}, Seed: {seed}")
             
-            return image_edited
+            return results
             
         except Exception as e:
             logger.error(f"Error generating image: {e}")

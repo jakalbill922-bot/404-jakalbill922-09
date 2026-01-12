@@ -3,16 +3,18 @@ from PIL import Image
 import io
 import base64
 from datetime import datetime
-from typing import Optional
+from typing import Iterable, Optional
 import os
 import random
 import numpy as np
 import torch
 
 from logger_config import logger
+from torchvision.utils import make_grid
+from torchvision.transforms.functional import pil_to_tensor, to_pil_image
 from schemas.trellis_schemas import TrellisResult
 
-from config import settings
+from config.settings import settings
 
 def secure_randint(low: int, high: int) -> int:
     """ Return a random integer in [low, high] using os.urandom. """
@@ -76,7 +78,7 @@ def save_file_bytes(data: bytes, folder: str, prefix: str, suffix: str) -> None:
         prefix: The prefix of the file.
         suffix: The suffix of the file.
     """
-    target_dir = settings.output_dir / folder
+    target_dir = settings.output.output_dir / folder
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     path = target_dir / f"{prefix}_{timestamp}{suffix}"
@@ -96,7 +98,7 @@ def save_image(image: Image.Image, folder: str, prefix: str, timestamp: str) -> 
         prefix: The prefix of the file.
         timestamp: The timestamp of the file.
     """
-    target_dir = settings.output_dir / folder / timestamp
+    target_dir = settings.output.output_dir / folder / timestamp
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / f"{prefix}.png"
     try:
@@ -127,4 +129,8 @@ def save_files(
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     save_image(image_edited, "png", "image_edited", timestamp)
     save_image(image_without_background, "png", "image_without_background", timestamp)
+
+def image_grid(images: Iterable[Image.Image]):
+    tensor_grid = make_grid([pil_to_tensor(img) for img in images])
+    return to_pil_image(tensor_grid)
 

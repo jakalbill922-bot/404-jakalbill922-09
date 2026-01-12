@@ -1,0 +1,43 @@
+api:
+  api_title: 3D Generation Pipeline Service
+  host: 0.0.0.0
+  port: 10006
+output:
+  save_generated_files: false
+  send_generated_files: false
+  compression: false
+  output_dir: generated_outputs
+trellis:
+  model_id: jetx/trellis-image-large
+  sparse_structure_steps: 8
+  sparse_structure_cfg_strength: 5.75
+  slat_steps: 20
+  slat_cfg_strength: 2.4
+  mode: stochastic
+  num_oversamples: 3
+  multiview: true
+  gpu: 0
+  dynamic_steps: true
+qwen:
+  base_model_path: Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
+  model_path: Qwen/Qwen-Image-Edit-2511
+  lora_path: lightx2v/Qwen-Image-Edit-2511-Lightning
+  height: 1024
+  width: 1024
+  num_inference_steps: 8
+  true_cfg_scale: 1.0
+  prompt_path_base: prompts/qwen_edit_prompt_base.json
+  prompt_path_multistage: prompts/qwen_edit_prompt_multistage_v6.json
+  gpu: 0
+  dtype: bf16
+background_removal:
+  model_id: ZhengPeng7/BiRefNet_dynamic
+  input_image_size:
+  - 1024
+  - 1024
+  output_image_size:
+  - 518
+  - 518
+  padding_percentage: 0.2
+  limit_padding: true
+  gpu: 0

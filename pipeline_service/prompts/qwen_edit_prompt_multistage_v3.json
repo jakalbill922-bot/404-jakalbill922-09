@@ -1,0 +1,10 @@
+{
+    "background": {
+        "positive": "Show the main subject on the perfectly flat background.\nMake sure the subject is fully visible.\nTurn background solid warm gray color.\nKeep exactly the same design, pose, proportions, materials, texture, and COLORS as in the original image.\nDo not change color, brightness, contrast, saturation, hue, white balance, or lighting direction on the subject.",
+        "negative": "NSFW, (worst quality:2), (low quality:2), (normal quality:2), multiple objects, complex background, environmental scene, dramatic lighting, shadows, artistic style, painterly, sketchy, conceptual art, abstract, cropped object, partial view, occluded features, blurry, motion blur, depth of field, bokeh, (monochrome), (grayscale), (skin blemishes:1.331), (acne:1.331), (age spots:1.331), (extra fingers:1.61051), (deformed limbs:1.331), (malformed limbs:1.331), (ugly:1.331), (poorly drawn hands:1.5), (poorly drawn feet:1.5), (poorly drawn face:1.5), (mutated hands:1.331), (bad anatomy:1.21), (distorted face:1.331), (disfigured:1.331), (low contrast), (underexposed), (overexposed), (amateur), (blurry), (bad proportions:1.331), (extra limbs:1.331), (fused fingers:1.61051), (unclear edges:1.331)"
+    },
+    "views": {
+        "positive": ["Edit this image so that it is shown in a three-quarters view from the left side.\nKeep exactly the same design, pose, proportions, materials, texture, and COLORS as in the original image.\nDo not change lighting direction on the subject.",
+                     "Edit this image so that it is shown from the back view.\nKeep exactly the same design, pose, proportions, materials, texture, and COLORS as in the original image.\nDo not change lighting direction on the subject."]
+    }
+}

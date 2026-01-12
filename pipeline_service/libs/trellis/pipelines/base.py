@@ -25,27 +25,21 @@ class Pipeline:
         """
         import os
         import json
-        import sys
         is_local = os.path.exists(f"{path}/pipeline.json")
 
         if is_local:
             config_file = f"{path}/pipeline.json"
-            print(f"[Trellis] Loading pipeline from local path: {path}", file=sys.stderr, flush=True)
         else:
             from huggingface_hub import hf_hub_download
-            print(f"[Trellis] Downloading pipeline config from HuggingFace: {path}...", file=sys.stderr, flush=True)
             config_file = hf_hub_download(path, "pipeline.json")
 
         with open(config_file, 'r') as f:
             args = json.load(f)['args']
 
-        model_keys = list(args['models'].keys())
-        print(f"[Trellis] Loading {len(model_keys)} models: {', '.join(model_keys)}", file=sys.stderr, flush=True)
-        _models = {}
-        for i, (k, v) in enumerate(args['models'].items(), 1):
-            print(f"[Trellis] Loading model {i}/{len(model_keys)}: {k} ({v})", file=sys.stderr, flush=True)
-            _models[k] = models.from_pretrained(f"{path}/{v}")
-        print(f"[Trellis] All models loaded successfully", file=sys.stderr, flush=True)
+        _models = {
+            k: models.from_pretrained(f"{path}/{v}")
+            for k, v in args['models'].items()
+        }
 
         new_pipeline = Pipeline(_models)
         new_pipeline._pretrained_args = args
